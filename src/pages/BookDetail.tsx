@@ -83,7 +83,7 @@ export default function BookDetail() {
     }
   };
 
-  const handleContact = () => {
+  const handleContact = async () => {
     if (!currentUser) {
       toast({
         title: "Sign in required",
@@ -93,11 +93,45 @@ export default function BookDetail() {
       navigate("/auth");
       return;
     }
-    
-    toast({
-      title: "Coming soon",
-      description: "Chat feature will be available in the next update",
-    });
+
+    try {
+      // Check if conversation already exists
+      const { data: existingConv, error: fetchError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("book_id", id!)
+        .eq("buyer_id", currentUser.id)
+        .eq("seller_id", book!.user_id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (existingConv) {
+        // Navigate to existing conversation
+        navigate(`/chat/${existingConv.id}`);
+      } else {
+        // Create new conversation
+        const { data: newConv, error: createError } = await supabase
+          .from("conversations")
+          .insert({
+            book_id: id!,
+            buyer_id: currentUser.id,
+            seller_id: book!.user_id,
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        navigate(`/chat/${newConv.id}`);
+      }
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start conversation",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
