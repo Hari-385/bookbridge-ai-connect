@@ -181,7 +181,7 @@ export default function MyBooks() {
                       {book.book_type}
                     </Badge>
                     {book.mode === "sell" && book.price && (
-                      <span className="font-semibold text-primary">${book.price}</span>
+                      <span className="font-semibold text-primary">₹{book.price}</span>
                     )}
                   </div>
                   <div className="flex gap-2">

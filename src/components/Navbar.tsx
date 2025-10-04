@@ -76,6 +76,9 @@ export default function Navbar() {
             <Link to="/browse" className="text-foreground hover:text-primary transition-colors">
               Browse Books
             </Link>
+            <Link to="/ask-ai" className="text-foreground hover:text-primary transition-colors">
+              Ask AI
+            </Link>
             {user && (
               <Link to="/my-books" className="text-foreground hover:text-primary transition-colors">
                 My Books
@@ -130,6 +133,9 @@ export default function Navbar() {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={() => navigate("/browse")}>
                   Browse Books
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/ask-ai")}>
+                  Ask AI
                 </DropdownMenuItem>
                 {user && (
                   <DropdownMenuItem onClick={() => navigate("/my-books")}>

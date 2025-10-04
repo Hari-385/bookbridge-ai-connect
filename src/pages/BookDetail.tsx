@@ -130,11 +130,11 @@ export default function BookDetail() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Button
           variant="ghost"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/browse")}
           className="mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
+          Back to Browse
         </Button>
 
         <div className="grid md:grid-cols-2 gap-8">
@@ -175,7 +175,7 @@ export default function BookDetail() {
 
               {book.mode === "sell" && book.price && (
                 <div className="text-3xl font-bold text-primary mb-4">
-                  ${book.price}
+                  ₹{book.price}
                 </div>
               )}
             </div>

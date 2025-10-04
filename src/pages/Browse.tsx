@@ -190,7 +190,7 @@ export default function Browse() {
                       {book.book_type}
                     </Badge>
                     {book.mode === "sell" && book.price && (
-                      <span className="font-semibold text-primary">${book.price}</span>
+                      <span className="font-semibold text-primary">₹{book.price}</span>
                     )}
                   </div>
                 </CardContent>

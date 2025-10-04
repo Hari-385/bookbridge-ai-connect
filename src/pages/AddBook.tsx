@@ -9,12 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Upload } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export default function AddBook() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [generatingDesc, setGeneratingDesc] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     title: "",
@@ -31,6 +32,56 @@ export default function AddBook() {
       setImageFile(e.target.files[0]);
     }
   };
+
+  const handleGenerateDescription = async () => {
+    if (!formData.title || !formData.author || !formData.category || !formData.book_type) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in title, author, category, and book type first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingDesc(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-generate-description", {
+        body: {
+          title: formData.title,
+          author: formData.author,
+          category: formData.category,
+          bookType: formData.book_type,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setFormData({ ...formData, description: data.description });
+      toast({
+        title: "Success!",
+        description: "AI description generated successfully",
+      });
+    } catch (error) {
+      console.error("Error generating description:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate description",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingDesc(false);
+    }
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,7 +235,7 @@ export default function AddBook() {
 
               {formData.mode === "sell" && (
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price ($) *</Label>
+                  <Label htmlFor="price">Price (₹) *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -197,7 +248,19 @@ export default function AddBook() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">Description</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateDescription}
+                    disabled={generatingDesc}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {generatingDesc ? "Generating..." : "Generate with AI"}
+                  </Button>
+                </div>
                 <Textarea
                   id="description"
                   placeholder="Brief description of the book condition and details"
