@@ -6,15 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Send, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Send, User } from "lucide-react";
 
 interface Message {
   id: string;
-  content: string;
   sender_id: string;
-  created_at: string;
+  content: string;
   read: boolean;
+  created_at: string;
 }
 
 interface Conversation {
@@ -24,6 +24,7 @@ interface Conversation {
   seller_id: string;
   books: {
     title: string;
+    image_url: string | null;
   };
 }
 
@@ -33,97 +34,22 @@ export default function Chat() {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [otherUserProfile, setOtherUserProfile] = useState<any>(null);
+  const [otherUser, setOtherUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    init();
+  }, [conversationId]);
 
   useEffect(() => {
-    if (conversationId && currentUser) {
-      fetchConversation();
-      fetchMessages();
-      subscribeToMessages();
-    }
-  }, [conversationId, currentUser]);
+    if (!conversationId) return;
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate("/auth");
-      return;
-    }
-    setCurrentUser(session.user);
-  };
-
-  const fetchConversation = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("conversations")
-        .select("*, books(title)")
-        .eq("id", conversationId)
-        .single();
-
-      if (error) throw error;
-      setConversation(data);
-
-      // Fetch other user's profile
-      const otherUserId = data.buyer_id === currentUser.id ? data.seller_id : data.buyer_id;
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", otherUserId)
-        .single();
-
-      setOtherUserProfile(profileData);
-    } catch (error) {
-      console.error("Error fetching conversation:", error);
-    }
-  };
-
-  const fetchMessages = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      setMessages(data || []);
-
-      // Mark messages as read
-      await markMessagesAsRead();
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const markMessagesAsRead = async () => {
-    if (!currentUser) return;
-
-    await supabase
-      .from("messages")
-      .update({ read: true })
-      .eq("conversation_id", conversationId)
-      .neq("sender_id", currentUser.id)
-      .eq("read", false);
-  };
-
-  const subscribeToMessages = () => {
+    // Set up realtime subscription for new messages
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel(`messages:${conversationId}`)
       .on(
         'postgres_changes',
         {
@@ -133,10 +59,8 @@ export default function Chat() {
           filter: `conversation_id=eq.${conversationId}`
         },
         (payload) => {
-          setMessages((current) => [...current, payload.new as Message]);
-          if (payload.new.sender_id !== currentUser?.id) {
-            markMessagesAsRead();
-          }
+          setMessages(prev => [...prev, payload.new as Message]);
+          scrollToBottom();
         }
       )
       .subscribe();
@@ -144,25 +68,100 @@ export default function Chat() {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [conversationId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const init = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate("/auth");
+      return;
+    }
+    setCurrentUser(session.user);
+
+    if (conversationId) {
+      await fetchConversation(conversationId, session.user.id);
+      await fetchMessages(conversationId);
+      await markMessagesAsRead(conversationId, session.user.id);
+    }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !currentUser || !conversationId) return;
-
-    setSending(true);
+  const fetchConversation = async (id: string, userId: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
+        .from("conversations")
+        .select(`
+          *,
+          books!inner(title, image_url)
+        `)
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+      setConversation(data);
+
+      // Fetch other user profile
+      const otherUserId = data.buyer_id === userId ? data.seller_id : data.buyer_id;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", otherUserId)
+        .single();
+
+      setOtherUser(profile);
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load conversation",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMessages = async (id: string) => {
+    try {
+      const { data, error } = await supabase
         .from("messages")
-        .insert({
-          conversation_id: conversationId,
-          sender_id: currentUser.id,
-          content: newMessage.trim(),
-        });
+        .select("*")
+        .eq("conversation_id", id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  };
+
+  const markMessagesAsRead = async (conversationId: string, userId: string) => {
+    try {
+      await supabase
+        .from("messages")
+        .update({ read: true })
+        .eq("conversation_id", conversationId)
+        .neq("sender_id", userId)
+        .eq("read", false);
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
+    }
+  };
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !conversationId || !currentUser) return;
+
+    try {
+      const { error } = await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        sender_id: currentUser.id,
+        content: newMessage.trim(),
+      });
 
       if (error) throw error;
       setNewMessage("");
@@ -173,9 +172,11 @@ export default function Chat() {
         description: "Failed to send message",
         variant: "destructive",
       });
-    } finally {
-      setSending(false);
     }
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   if (loading) {
@@ -194,78 +195,86 @@ export default function Chat() {
       <Navbar />
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col max-w-4xl">
-        <div className="mb-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(-1)}
-            className="mb-2"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          
-          {conversation && otherUserProfile && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={otherUserProfile.avatar_url || undefined} />
-                    <AvatarFallback>
-                      <User className="h-5 w-5" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className="text-lg">{otherUserProfile.full_name || "User"}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      About: {conversation.books.title}
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/browse")}
+          className="mb-4 w-fit"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Browse
+        </Button>
+
+        <Card className="flex-1 flex flex-col shadow-[var(--shadow-book)]">
+          <CardHeader className="border-b">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={otherUser?.avatar_url || undefined} />
+                <AvatarFallback>
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <CardTitle className="text-lg">
+                  {otherUser?.full_name || "Anonymous User"}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  About: {conversation?.books.title}
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[400px] max-h-[600px]">
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No messages yet. Start the conversation!
+              </div>
+            ) : (
+              messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.sender_id === currentUser?.id ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  <div
+                    className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                      message.sender_id === currentUser?.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                    <p
+                      className={`text-xs mt-1 ${
+                        message.sender_id === currentUser?.id
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {new Date(message.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                 </div>
-              </CardHeader>
-            </Card>
-          )}
-        </div>
-
-        <Card className="flex-1 flex flex-col shadow-[var(--shadow-book)]">
-          <CardContent className="flex-1 p-4 overflow-y-auto max-h-[calc(100vh-400px)]">
-            <div className="space-y-4">
-              {messages.map((message) => {
-                const isOwn = message.sender_id === currentUser?.id;
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                        isOwn
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground"
-                      }`}
-                    >
-                      <p className="break-words">{message.content}</p>
-                      <p className="text-xs opacity-70 mt-1">
-                        {new Date(message.created_at).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
           </CardContent>
-          
-          <div className="p-4 border-t">
-            <form onSubmit={handleSendMessage} className="flex gap-2">
+
+          <div className="border-t p-4">
+            <form onSubmit={sendMessage} className="flex gap-2">
               <Input
-                placeholder="Type your message..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                disabled={sending}
+                placeholder="Type your message..."
+                className="flex-1"
               />
               <Button
                 type="submit"
-                disabled={sending || !newMessage.trim()}
+                disabled={!newMessage.trim()}
                 className="bg-gradient-to-r from-primary to-accent"
               >
                 <Send className="h-4 w-4" />
