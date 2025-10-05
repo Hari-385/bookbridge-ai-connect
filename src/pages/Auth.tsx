@@ -9,10 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { BookOpen } from "lucide-react";
 import { z } from "zod";
 
-const authSchema = z.object({
+const signInSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  fullName: z.string().min(2, "Name must be at least 2 characters").optional(),
+});
+
+const signUpSchema = signInSchema.extend({
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
 });
 
 export default function Auth() {
@@ -31,15 +34,17 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const validatedData = authSchema.parse(formData);
+      const schema = isSignUp ? signUpSchema : signInSchema;
+      const validatedData = schema.parse(formData);
 
       if (isSignUp) {
+        const signUpData = validatedData as z.infer<typeof signUpSchema>;
         const { error } = await supabase.auth.signUp({
-          email: validatedData.email,
-          password: validatedData.password,
+          email: signUpData.email,
+          password: signUpData.password,
           options: {
             data: {
-              full_name: validatedData.fullName,
+              full_name: signUpData.fullName,
             },
             emailRedirectTo: `${window.location.origin}/`,
           },
