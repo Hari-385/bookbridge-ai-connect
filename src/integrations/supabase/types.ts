@@ -17,6 +17,7 @@ export type Database = {
       books: {
         Row: {
           author: string
+          available_copies: number
           book_type: Database["public"]["Enums"]["book_type"]
           category: string
           created_at: string | null
@@ -31,6 +32,7 @@ export type Database = {
         }
         Insert: {
           author: string
+          available_copies?: number
           book_type: Database["public"]["Enums"]["book_type"]
           category: string
           created_at?: string | null
@@ -45,6 +47,7 @@ export type Database = {
         }
         Update: {
           author?: string
+          available_copies?: number
           book_type?: Database["public"]["Enums"]["book_type"]
           category?: string
           created_at?: string | null
@@ -133,6 +136,74 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          address_line1: string
+          address_line2: string | null
+          book_id: string
+          buyer_id: string
+          city: string
+          created_at: string | null
+          full_name: string
+          id: string
+          payment_method: string
+          phone: string
+          pincode: string
+          quantity: number
+          seller_id: string
+          state: string
+          status: string
+          total_price: number
+          updated_at: string | null
+        }
+        Insert: {
+          address_line1: string
+          address_line2?: string | null
+          book_id: string
+          buyer_id: string
+          city: string
+          created_at?: string | null
+          full_name: string
+          id?: string
+          payment_method?: string
+          phone: string
+          pincode: string
+          quantity: number
+          seller_id: string
+          state: string
+          status?: string
+          total_price: number
+          updated_at?: string | null
+        }
+        Update: {
+          address_line1?: string
+          address_line2?: string | null
+          book_id?: string
+          buyer_id?: string
+          city?: string
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          payment_method?: string
+          phone?: string
+          pincode?: string
+          quantity?: number
+          seller_id?: string
+          state?: string
+          status?: string
+          total_price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
             referencedColumns: ["id"]
           },
         ]

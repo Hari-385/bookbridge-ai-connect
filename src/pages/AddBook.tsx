@@ -25,6 +25,7 @@ export default function AddBook() {
     mode: "",
     price: "",
     description: "",
+    available_copies: "1",
   });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,6 +127,7 @@ export default function AddBook() {
         description: formData.description,
         image_url: imageUrl,
         user_id: session.user.id,
+        available_copies: parseInt(formData.available_copies),
       }]);
 
       if (error) throw error;
@@ -242,6 +244,20 @@ export default function AddBook() {
                     step="0.01"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    required
+                  />
+                </div>
+              )}
+
+              {(formData.mode === "sell" || formData.mode === "donate") && (
+                <div className="space-y-2">
+                  <Label htmlFor="available_copies">Available Copies *</Label>
+                  <Input
+                    id="available_copies"
+                    type="number"
+                    min="1"
+                    value={formData.available_copies}
+                    onChange={(e) => setFormData({ ...formData, available_copies: e.target.value })}
                     required
                   />
                 </div>

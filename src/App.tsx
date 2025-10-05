@@ -13,6 +13,7 @@ import Chat from "./pages/Chat";
 import AskAI from "./pages/AskAI";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import Checkout from "./pages/Checkout";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/chat/:conversationId" element={<Chat />} />
           <Route path="/ask-ai" element={<AskAI />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/checkout/:bookId" element={<Checkout />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

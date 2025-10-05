@@ -25,6 +25,7 @@ interface Book {
   price: number | null;
   image_url: string | null;
   user_id: string;
+  available_copies: number;
   profiles: {
     full_name: string;
   };
@@ -185,12 +186,31 @@ export default function Browse() {
                 <CardContent className="p-4">
                   <h3 className="font-semibold text-lg mb-1 line-clamp-1">{book.title}</h3>
                   <p className="text-sm text-muted-foreground mb-2">by {book.author}</p>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-xs">
-                      {book.book_type}
-                    </Badge>
-                    {book.mode === "sell" && book.price && (
-                      <span className="font-semibold text-primary">₹{book.price}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="text-xs">
+                        {book.book_type}
+                      </Badge>
+                      {book.mode === "sell" && book.price && (
+                        <span className="font-semibold text-primary">₹{book.price}</span>
+                      )}
+                    </div>
+                    {book.mode === "sell" && book.available_copies > 0 && (
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/checkout/${book.id}`);
+                        }}
+                      >
+                        Buy Now ({book.available_copies} available)
+                      </Button>
+                    )}
+                    {book.mode === "sell" && book.available_copies === 0 && (
+                      <Button className="w-full" size="sm" disabled>
+                        Out of Stock
+                      </Button>
                     )}
                   </div>
                 </CardContent>
